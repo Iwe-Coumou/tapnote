@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Makes it size correctly on phones -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>a little something</title>
+
+  <style>
+    /* ---- The look. Change these to make it yours. ---- */
+    :root {
+      --bg:      #1c1a2e;   /* deep ink-plum background */
+      --glow:    #2a2742;   /* slightly lighter centre glow */
+      --text:    #f3ede4;   /* warm off-white */
+      --accent:  #e8a598;   /* soft coral, used sparingly */
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+      background: radial-gradient(circle at 50% 35%, var(--glow), var(--bg) 70%);
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      text-align: center;
+      /* Prevent the flash of unstyled content feeling abrupt */
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* The message itself — the one thing that should feel special */
+    #message {
+      font-size: clamp(1.6rem, 6vw, 2.6rem);
+      line-height: 1.35;
+      max-width: 22ch;
+      font-style: italic;
+      /* start invisible; fade in via the .show class added by JS */
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.9s ease, transform 0.9s ease;
+    }
+    #message.show { opacity: 1; transform: translateY(0); }
+
+    /* A small, quiet button — handy for testing without re-tapping */
+    button {
+      background: none;
+      border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+      color: var(--accent);
+      font: inherit;
+      font-size: 0.95rem;
+      font-style: normal;
+      letter-spacing: 0.03em;
+      padding: 0.55rem 1.1rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    /* Be kind to people who prefer no motion */
+    @media (prefers-reduced-motion: reduce) {
+      #message { transition: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- The message drops in here -->
+  <p id="message"></p>
+
+  <!-- Remove this button for the "real" gift if you want one message per tap only -->
+  <button id="again">another one</button>
+
+  <script>
+    // ---- Your messages. Edit this list freely. ----
+    // (For the prototype these live in the page. The real *private*
+    //  messages will come from your server later, not from here.)
+    const messages = [
+      "Hi. Just wanted you to know I was thinking about you.",
+      "You make ordinary days feel like something.",
+      "Whatever today is, I'm glad I get to share it with you.",
+      "Consider this a small hug, delivered by a sticker.",
+      "Still you. Still my favourite."
+    ];
+
+    const el = document.getElementById("message");
+
+    function showRandom() {
+      // pick a random line
+      const pick = messages[Math.floor(Math.random() * messages.length)];
+      // reset animation, set text, then trigger the fade-in
+      el.classList.remove("show");
+      el.textContent = pick;              // textContent, not innerHTML (safe)
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => el.classList.add("show"))
+      );
+    }
+
+    document.getElementById("again").addEventListener("click", showRandom);
+
+    // show one as soon as the page loads (i.e. when she taps)
+    showRandom();
+  </script>
+</body>
+</html>
