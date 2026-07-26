@@ -1,3 +1,12 @@
 name = "tapnote"
 main = "src/index.js"
 compatibility_date = "2026-07-26"
+
+[[kv_namespaces]]
+binding = "TAPNOTE_KV"
+id = "c99a918149ef4dfea567b66e959d7d6b"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true

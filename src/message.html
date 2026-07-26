@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>tapnote</title>
+        <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 2rem;
+            box-sizing: border-box;
+            font-family: Georgia, "Times New Roman", serif;
+            background: #fdf6f0;
+            color: #333;
+            text-align: center;
+            }  
+        #message {
+            font-size: 1.4rem;
+            line-height: 1.6;
+            max-width: 32rem;
+        }
+        </style>
+    </head>
+    <body>
+        <p id="message"></p>
+        <script>
+            document.getElementById("message").textContent = __MESSAGE_JSON__;
+        </script>
+    </body>
+</html>
