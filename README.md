@@ -22,9 +22,9 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 | Method | Path        | Auth   | Purpose                                                                 |
 | ------ | ----------- | ------ | ------------------------------------------------------------------------ |
 | GET    | `/message`  | none   | Returns the styled HTML page with one message (queued message if one is waiting, otherwise random from the pool). |
-| POST   | `/queue`    | secret | Body `{ "message": "..." }`. Sets the next `/message` tap to show this exact message, then it's cleared automatically after being served once. |
-| GET    | `/queue`    | secret | Returns `{ "queued": "..." }` or `{ "queued": null }` — check whether something's currently queued. |
-| DELETE | `/queue`    | secret | Cancels a queued message before it's tapped, reverting to random. |
+| POST   | `/queue`    | secret | Body `{ "message": "..." }`. Appends to the queue — taps serve queued messages in order (FIFO) before falling back to random once the queue is empty. |
+| GET    | `/queue`    | secret | Returns `{ "queue": [...] }` — the full ordered list of upcoming queued messages. |
+| DELETE | `/queue`    | secret | With no body, clears the entire queue. With `{ "index": 1 }`, removes just that one queued item. |
 | POST   | `/messages` | secret | Body `{ "message": "..." }`. Appends a message to the random-pick pool permanently. |
 | GET    | `/messages` | secret | Returns the full pool as a JSON array. |
 | PUT    | `/messages` | secret | Body `{ "messages": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |

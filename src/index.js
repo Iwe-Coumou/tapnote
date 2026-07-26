@@ -10,6 +10,15 @@ function safeEqual(a, b) {
     return mismatch === 0;
 }
 
+async function readQueue(env) {
+    const raw = await env.TAPNOTE_KV.get("queue");
+    return raw ? JSON.parse(raw) : [];
+}
+
+async function writeQueue(env, queue) {
+    await env.TAPNOTE_KV.put("queue", JSON.stringify(queue));
+}
+
 async function handleQueue(request, env) {
     if (!isAuthorized(request, env)) {
         return new Response("Unauthorized", { status: 401 });
@@ -27,7 +36,10 @@ async function handleQueue(request, env) {
         return new Response("Missing `message` field", { status: 400 });
     }
 
-    await env.TAPNOTE_KV.put("queue:next", message);
+    const queue = await readQueue(env);
+    queue.push(message);
+    await writeQueue(env, queue);
+
     return new Response("Queued", { status: 200 });
 }
 
@@ -126,17 +138,37 @@ async function handleGetQueue(request, env) {
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const queued = await env.TAPNOTE_KV.get("queue:next");
-  return new Response(JSON.stringify({ queued }), {
+  const queue = await readQueue(env);
+  return new Response(JSON.stringify({ queue }), {
     headers: { "content-type": "application/json" },
   });
 }
 
+// DELETE /queue with no body (or a body without "index") clears the whole
+// queue. DELETE /queue with { "index": n } removes just that one entry.
 async function handleDeleteQueue(request, env) {
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
   }
-  await env.TAPNOTE_KV.delete("queue:next");
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    // No body (or invalid JSON) — treated as "clear everything" below.
+  }
+
+  if (typeof body.index === "number") {
+    const queue = await readQueue(env);
+    if (body.index < 0 || body.index >= queue.length) {
+      return new Response("Queue item not found", { status: 404 });
+    }
+    queue.splice(body.index, 1);
+    await writeQueue(env, queue);
+    return new Response("Removed", { status: 200 });
+  }
+
+  await env.TAPNOTE_KV.delete("queue");
   return new Response("Cleared", { status: 200 });
 }
 
@@ -182,10 +214,11 @@ export default {
 };
 
 async function pickMessage(env) {
-    const queued = await env.TAPNOTE_KV.get("queue:next");
-    if (queued !== null) {
-        await env.TAPNOTE_KV.delete("queue:next");
-        return queued;
+    const queue = await readQueue(env);
+    if (queue.length > 0) {
+        const [next, ...rest] = queue;
+        await writeQueue(env, rest);
+        return next;
     }
 
     const messages = await readMessages(env);
