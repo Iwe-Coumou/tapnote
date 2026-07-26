@@ -150,3 +150,13 @@ deliberate no-op placeholder for now, with comments describing what it will
 do once the tag is upgraded to an NTAG 424 DNA chip: verify a per-tap
 signature and reject any previously-seen counter value, to prevent a
 tapped/shared link from being reused.
+
+## A note on how this was built
+
+The idea, design, and product decisions behind this project are mine — I
+built it as a personal gift and used it as a chance to learn Cloudflare
+Workers. I worked through the implementation with AI assistance (Claude):
+it explained the concepts, but I wrote and tested the code myself as I went,
+reviewed and understood each piece before moving to the next, and made the
+calls on architecture, security, and design decisions throughout. AI acted
+as a tutor and pair programmer here, not an autopilot.
