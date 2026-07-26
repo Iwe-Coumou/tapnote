@@ -1,0 +1,29 @@
+{
+  "name": "tapnote",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Iwe-Coumou/tapnote.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Iwe-Coumou/tapnote/issues"
+  },
+  "homepage": "https://github.com/Iwe-Coumou/tapnote#readme",
+  "devDependencies": {
+    "wrangler": "^4.114.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260722.1": true
+  }
+}
