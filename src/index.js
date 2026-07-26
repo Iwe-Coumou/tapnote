@@ -48,8 +48,7 @@ async function handleAddMessage(request, env) {
     return new Response("Missing `message` field", { status: 400 });
   }
 
-  const raw = await env.TAPNOTE_KV.get("messages");
-  const messages = raw ? JSON.parse(raw) : [];
+  const messages = await readMessages(env);
   messages.push(message);
   await env.TAPNOTE_KV.put("messages", JSON.stringify(messages));
 
@@ -61,6 +60,84 @@ function isAuthorized(request, env) {
   const authHeader = request.headers.get("Authorization") || "";
   const expected = `Bearer ${env.ADMIN_SECRET}`;
   return safeEqual(authHeader, expected);
+}
+
+async function readMessages(env) {
+  const raw = await env.TAPNOTE_KV.get("messages");
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function handleListMessages(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const messages = await readMessages(env);
+  return new Response(JSON.stringify(messages), {
+    headers: { "content-type": "application/json" },
+  });
+}
+
+async function handleReplaceMessages(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const isValid = Array.isArray(body.messages) && body.messages.every((m) => typeof m === "string");
+  if (!isValid) {
+    return new Response("`messages` must be an array of strings", { status: 400 });
+  }
+
+  await env.TAPNOTE_KV.put("messages", JSON.stringify(body.messages));
+  return new Response("Replaced", { status: 200 });
+}
+
+async function handleDeleteMessage(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const messages = await readMessages(env);
+  const index = typeof body.index === "number" ? body.index : messages.indexOf(body.message);
+
+  if (index < 0 || index >= messages.length) {
+    return new Response("Message not found", { status: 404 });
+  }
+
+  messages.splice(index, 1);
+  await env.TAPNOTE_KV.put("messages", JSON.stringify(messages));
+  return new Response("Deleted", { status: 200 });
+}
+
+async function handleGetQueue(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const queued = await env.TAPNOTE_KV.get("queue:next");
+  return new Response(JSON.stringify({ queued }), {
+    headers: { "content-type": "application/json" },
+  });
+}
+
+async function handleDeleteQueue(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  await env.TAPNOTE_KV.delete("queue:next");
+  return new Response("Cleared", { status: 200 });
 }
 
 
@@ -80,6 +157,26 @@ export default {
             return handleAddMessage(request, env);
         }
 
+        if (request.method === "GET" && url.pathname === "/messages") {
+            return handleListMessages(request, env);
+        }
+
+        if (request.method === "PUT" && url.pathname === "/messages") {
+            return handleReplaceMessages(request, env);
+        }
+
+        if (request.method === "DELETE" && url.pathname === "/messages") {
+            return handleDeleteMessage(request, env);
+        }
+
+        if (request.method === "GET" && url.pathname === "/queue") {
+            return handleGetQueue(request, env);
+        }
+
+        if (request.method === "DELETE" && url.pathname === "/queue") {
+            return handleDeleteQueue(request, env);
+        }
+
         return new Response("Not found", { status: 404 });
     },
 };
@@ -91,12 +188,11 @@ async function pickMessage(env) {
         return queued;
     }
 
-    const raw = await env.TAPNOTE_KV.get("messages");
-    if (!raw) {
+    const messages = await readMessages(env);
+    if (messages.length === 0) {
         return "No messages configured yet.";
     }
 
-    const messages = JSON.parse(raw)
     const index = Math.floor(Math.random() * messages.length);
     return messages[index];
 }

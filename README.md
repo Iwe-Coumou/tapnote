@@ -19,11 +19,16 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 
 ## Routes
 
-| Method | Path        | Auth | Purpose                                                                 |
-| ------ | ----------- | ---- | ------------------------------------------------------------------------ |
-| GET    | `/message`  | none | Returns the styled HTML page with one message (queued message if one is waiting, otherwise random from the pool). |
+| Method | Path        | Auth   | Purpose                                                                 |
+| ------ | ----------- | ------ | ------------------------------------------------------------------------ |
+| GET    | `/message`  | none   | Returns the styled HTML page with one message (queued message if one is waiting, otherwise random from the pool). |
 | POST   | `/queue`    | secret | Body `{ "message": "..." }`. Sets the next `/message` tap to show this exact message, then it's cleared automatically after being served once. |
+| GET    | `/queue`    | secret | Returns `{ "queued": "..." }` or `{ "queued": null }` — check whether something's currently queued. |
+| DELETE | `/queue`    | secret | Cancels a queued message before it's tapped, reverting to random. |
 | POST   | `/messages` | secret | Body `{ "message": "..." }`. Appends a message to the random-pick pool permanently. |
+| GET    | `/messages` | secret | Returns the full pool as a JSON array. |
+| PUT    | `/messages` | secret | Body `{ "messages": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |
+| DELETE | `/messages` | secret | Body `{ "index": 2 }` or `{ "message": "exact text" }`. Removes one message from the pool. |
 
 Authenticated routes expect an `Authorization: Bearer <ADMIN_SECRET>` header.
 
