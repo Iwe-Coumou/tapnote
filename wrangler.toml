@@ -8,5 +8,5 @@ id = "c99a918149ef4dfea567b66e959d7d6b"
 
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["**/*.html", "**/*.css"]
 fallthrough = true

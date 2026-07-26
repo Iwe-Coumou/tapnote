@@ -1,0 +1,58 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: radial-gradient(ellipse at top, #fffaf2 0%, #f4ead9 55%, #ecdec7 100%);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  color: #3a2e26;
+}
+
+.letter {
+  max-width: 34rem;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: rise 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 0.15s;
+}
+
+.mark {
+  display: inline-block;
+  font-family: "Parisienne", cursive;
+  font-size: clamp(1.4rem, 5vw, 1.8rem);
+  color: #a15c4e;
+  margin-bottom: 1.25rem;
+  opacity: 0.85;
+}
+
+#message {
+  font-size: clamp(1.35rem, 4.6vw, 2rem);
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.rule {
+  width: 3rem;
+  height: 1px;
+  background: #c79b83;
+  margin: 1.75rem auto 0;
+  opacity: 0.7;
+}
+
+@keyframes rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .letter { animation: none; opacity: 1; transform: none; }
+}

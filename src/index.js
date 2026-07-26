@@ -1,4 +1,5 @@
 import messageTemplate from "./message.html"
+import pageStyles from "./style.css"
 
 function safeEqual(a, b) {
     if (a.length !== b.length) return false;
@@ -102,7 +103,9 @@ async function pickMessage(env) {
 
 function renderMessagePage(message) {
     const safeMessageJson = JSON.stringify(message).replace(/</g, "\\u003c");
-    const html = messageTemplate.replace("__MESSAGE_JSON__", () => safeMessageJson);
+    const html = messageTemplate
+        .replace("__MESSAGE_JSON__", () => safeMessageJson)
+        .replace("__STYLES__", () => pageStyles);
 
     return new Response(html, {
         headers: { "content-type": "text/html; charset=UTF-8" },
