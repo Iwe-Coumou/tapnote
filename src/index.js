@@ -419,7 +419,7 @@ export default {
             return handleDeleteSong(request, env);
         }
 
-        return new Response("Not found", { status: 404 });
+        return renderErrorPage("There's nothing here — check the link?", 404);
     },
 };
 
