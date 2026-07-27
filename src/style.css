@@ -42,7 +42,7 @@ body {
 }
 
 .rule {
-  width: 3rem;
+  width: 6rem;
   height: 1px;
   background: #c79b83;
   margin: 1.75rem auto 0;
@@ -50,15 +50,33 @@ body {
 }
 
 .reply {
-  margin-top: 2.25rem;
+  margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
 }
 
+.reply-toggle {
+  background: none;
+  border: none;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a15c4e;
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: opacity 0.15s ease;
+}
+
+.reply-toggle:hover {
+  opacity: 1;
+}
+
 #reply-controls {
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
@@ -70,13 +88,13 @@ body {
 }
 
 .emoji-btn {
-  font-size: 1.3rem;
+  font-size: 1.05rem;
   line-height: 1;
   background: none;
   border: 1px solid rgba(161, 92, 78, 0.35);
   border-radius: 999px;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
 }

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Parisienne&display=swap" rel="stylesheet">
-  <style>__STYLES__</style>
+  <style>/*__STYLES__*/</style>
 </head>
 <body>
   <div class="letter">
@@ -17,14 +17,15 @@
     <div class="rule"></div>
 
     <form id="reply-form" class="reply">
+      <button type="button" id="reply-toggle" class="reply-toggle">reply</button>
       <div id="reply-controls">
+        <input id="reply-input" class="reply-input" type="text" placeholder="write something back..." maxlength="300" />
         <div class="emoji-row">
           <button type="button" class="emoji-btn">❤️</button>
           <button type="button" class="emoji-btn">😂</button>
           <button type="button" class="emoji-btn">🥹</button>
           <button type="button" class="emoji-btn">😘</button>
         </div>
-        <input id="reply-input" class="reply-input" type="text" placeholder="write something back..." maxlength="300" />
         <button type="submit" id="reply-send" class="reply-send">Send</button>
       </div>
       <p id="reply-status" class="reply-status"></p>
@@ -35,11 +36,18 @@
     document.getElementById("message").textContent = currentMessage;
 
     const replyForm = document.getElementById("reply-form");
+    const replyToggle = document.getElementById("reply-toggle");
     const replyControls = document.getElementById("reply-controls");
     const replyInput = document.getElementById("reply-input");
     const replySend = document.getElementById("reply-send");
     const replyStatus = document.getElementById("reply-status");
     const emojiButtons = document.querySelectorAll(".emoji-btn");
+
+    replyToggle.addEventListener("click", () => {
+      replyToggle.style.display = "none";
+      replyControls.style.display = "flex";
+      replyInput.focus();
+    });
 
     function setReplyControlsDisabled(disabled) {
       replyInput.disabled = disabled;

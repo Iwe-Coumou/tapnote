@@ -324,7 +324,7 @@ function renderMessagePage(message) {
     const safeMessageJson = JSON.stringify(message).replace(/</g, "\\u003c");
     const html = messageTemplate
         .replace("__MESSAGE_JSON__", () => safeMessageJson)
-        .replace("__STYLES__", () => pageStyles);
+        .replace("/*__STYLES__*/", () => pageStyles);
 
     return new Response(html, {
         headers: { "content-type": "text/html; charset=UTF-8" },
