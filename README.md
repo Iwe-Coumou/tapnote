@@ -39,6 +39,12 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 
 Authenticated routes expect an `Authorization: Bearer <ADMIN_SECRET>` header.
 
+The two error states reachable through `/message` itself (an invalid/replayed
+tag link, or something unexpected failing) render with the same letter
+styling via `error.html`, rather than plain browser error text — those are
+the only error responses she could ever actually see. Admin-route errors
+(401/404 on the CLI-facing endpoints) stay plain text on purpose.
+
 Songs are a plain curated list, not a live Spotify playlist lookup — Spotify's Web API now requires the developer account to hold an active Premium subscription for even basic catalog reads, so `/message` never calls out to Spotify at all. Add track links by hand (Spotify app → Share → Copy Link) via `/songs` or the CLI.
 
 ## Project structure
@@ -46,12 +52,12 @@ Songs are a plain curated list, not a live Spotify playlist lookup — Spotify's
 ```
 src/
   index.js       Worker entry point: routing, KV access, auth
-  message.html   Page template (placeholders: __MESSAGE_JSON__, __STYLES__)
-  style.css      Page styles, spliced into the template at request time
+  message.html   Page template (placeholders: __MESSAGE_JSON__, __SONG_JSON__, /*__STYLES__*/)
+  error.html     Styled fallback for the error states reachable through /message
+  style.css      Page styles, shared by both templates, spliced in at request time
 wrangler.toml    Cloudflare config: Worker name, KV binding, module rules
 messages.json    Local staging file used to seed KV (gitignored — never committed)
 .dev.vars        Local secret values for `wrangler dev` (gitignored — never committed)
-index.html       Leftover from an earlier prototype, no longer used by the Worker
 ```
 
 ## Prerequisites

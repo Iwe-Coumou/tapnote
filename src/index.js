@@ -1,4 +1,5 @@
 import messageTemplate from "./message.html"
+import errorTemplate from "./error.html"
 import pageStyles from "./style.css"
 
 function safeEqual(a, b) {
@@ -452,6 +453,23 @@ function renderMessagePage(message, song) {
     });
 }
 
+// Styled fallback for the two error states reachable through /message itself
+// (an invalid/replayed tag link, or something unexpected breaking) — the
+// only error responses she could ever actually see, so they get the same
+// letter styling instead of plain browser error text. Admin-route errors
+// (401/404 on the CLI-facing endpoints) stay plain text on purpose.
+function renderErrorPage(message, status) {
+    const safeMessageJson = JSON.stringify(message).replace(/</g, "\\u003c");
+    const html = errorTemplate
+        .replace("__MESSAGE_JSON__", () => safeMessageJson)
+        .replace("/*__STYLES__*/", () => pageStyles);
+
+    return new Response(html, {
+        status,
+        headers: { "content-type": "text/html; charset=UTF-8" },
+    });
+}
+
 // --- NTAG 424 DNA "SUN" (Secure Unique NFC) verification -------------------
 // Placeholder for now — the physical tag is currently a plain NFC tag with
 // no chip-side crypto, so there is nothing to verify yet.
@@ -483,10 +501,14 @@ function verifyTagAuth(request, env) {
 async function handleMessage(request, env) {
     const authResult = verifyTagAuth(request, env);
     if (!authResult.valid) {
-        return new Response("Invalid or already-used tag link", { status: 403 });
+        return renderErrorPage("That link doesn't look right — try tapping the tag again?", 403);
     }
 
-    const message = await pickMessage(env);
-    const song = await pickSong(env);
-    return renderMessagePage(message, song);
+    try {
+        const message = await pickMessage(env);
+        const song = await pickSong(env);
+        return renderMessagePage(message, song);
+    } catch {
+        return renderErrorPage("Something went wrong on this end — try tapping again in a moment.", 500);
+    }
 }
