@@ -134,6 +134,84 @@ async function handleDeleteMessage(request, env) {
   return new Response("Deleted", { status: 200 });
 }
 
+const MAX_REPLY_LENGTH = 300;
+
+async function readReplies(env) {
+  const raw = await env.TAPNOTE_KV.get("replies");
+  return raw ? JSON.parse(raw) : [];
+}
+
+// POST /reply is deliberately unauthenticated — same security posture as
+// GET /message itself. Whoever has the tapped link can reply, same as
+// whoever has the link can view the message; there's no separate secret
+// for the recipient.
+async function handleReply(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const text = typeof body.text === "string" ? body.text.trim() : "";
+  if (!text) {
+    return new Response("Missing `text` field", { status: 400 });
+  }
+  if (text.length > MAX_REPLY_LENGTH) {
+    return new Response(`Reply too long (max ${MAX_REPLY_LENGTH} characters)`, { status: 400 });
+  }
+
+  const repliedTo = typeof body.repliedTo === "string" ? body.repliedTo : null;
+
+  const replies = await readReplies(env);
+  replies.push({
+    text,
+    repliedTo,
+    timestamp: new Date().toISOString(),
+  });
+  await env.TAPNOTE_KV.put("replies", JSON.stringify(replies));
+
+  return new Response("Thanks!", { status: 200 });
+}
+
+async function handleListReplies(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const replies = await readReplies(env);
+  return new Response(JSON.stringify(replies), {
+    headers: { "content-type": "application/json" },
+  });
+}
+
+// DELETE /replies with no body clears all replies. With { "index": n },
+// removes just that one.
+async function handleDeleteReplies(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    // No body (or invalid JSON) — treated as "clear everything" below.
+  }
+
+  if (typeof body.index === "number") {
+    const replies = await readReplies(env);
+    if (body.index < 0 || body.index >= replies.length) {
+      return new Response("Reply not found", { status: 404 });
+    }
+    replies.splice(body.index, 1);
+    await env.TAPNOTE_KV.put("replies", JSON.stringify(replies));
+    return new Response("Removed", { status: 200 });
+  }
+
+  await env.TAPNOTE_KV.delete("replies");
+  return new Response("Cleared", { status: 200 });
+}
+
 async function handleGetQueue(request, env) {
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
@@ -207,6 +285,18 @@ export default {
 
         if (request.method === "DELETE" && url.pathname === "/queue") {
             return handleDeleteQueue(request, env);
+        }
+
+        if (request.method === "POST" && url.pathname === "/reply") {
+            return handleReply(request, env);
+        }
+
+        if (request.method === "GET" && url.pathname === "/replies") {
+            return handleListReplies(request, env);
+        }
+
+        if (request.method === "DELETE" && url.pathname === "/replies") {
+            return handleDeleteReplies(request, env);
         }
 
         return new Response("Not found", { status: 404 });

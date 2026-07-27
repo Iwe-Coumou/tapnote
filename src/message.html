@@ -15,9 +15,69 @@
     <span class="mark">for Tina</span>
     <p id="message"></p>
     <div class="rule"></div>
+
+    <form id="reply-form" class="reply">
+      <div id="reply-controls">
+        <div class="emoji-row">
+          <button type="button" class="emoji-btn">❤️</button>
+          <button type="button" class="emoji-btn">😂</button>
+          <button type="button" class="emoji-btn">🥹</button>
+          <button type="button" class="emoji-btn">😘</button>
+        </div>
+        <input id="reply-input" class="reply-input" type="text" placeholder="write something back..." maxlength="300" />
+        <button type="submit" id="reply-send" class="reply-send">Send</button>
+      </div>
+      <p id="reply-status" class="reply-status"></p>
+    </form>
   </div>
   <script>
-    document.getElementById("message").textContent = __MESSAGE_JSON__;
+    const currentMessage = __MESSAGE_JSON__;
+    document.getElementById("message").textContent = currentMessage;
+
+    const replyForm = document.getElementById("reply-form");
+    const replyControls = document.getElementById("reply-controls");
+    const replyInput = document.getElementById("reply-input");
+    const replySend = document.getElementById("reply-send");
+    const replyStatus = document.getElementById("reply-status");
+    const emojiButtons = document.querySelectorAll(".emoji-btn");
+
+    function setReplyControlsDisabled(disabled) {
+      replyInput.disabled = disabled;
+      replySend.disabled = disabled;
+      emojiButtons.forEach((button) => { button.disabled = disabled; });
+    }
+
+    async function sendReply(text) {
+      if (!text) return;
+      setReplyControlsDisabled(true);
+      replyStatus.textContent = "Sending...";
+      try {
+        const res = await fetch("/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, repliedTo: currentMessage }),
+        });
+        if (!res.ok) throw new Error("request failed");
+
+        // Only one reply per tap: once it's sent, replace the whole reply
+        // UI with a simple confirmation so it can't be sent again.
+        replyControls.style.display = "none";
+        replyStatus.textContent = "Reply sent 💌";
+        replyStatus.classList.add("reply-sent");
+      } catch {
+        replyStatus.textContent = "Couldn't send — try again?";
+        setReplyControlsDisabled(false);
+      }
+    }
+
+    replyForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sendReply(replyInput.value.trim());
+    });
+
+    emojiButtons.forEach((button) => {
+      button.addEventListener("click", () => sendReply(button.textContent));
+    });
   </script>
 </body>
 </html>

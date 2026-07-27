@@ -29,6 +29,9 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 | GET    | `/messages` | secret | Returns the full pool as a JSON array. |
 | PUT    | `/messages` | secret | Body `{ "messages": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |
 | DELETE | `/messages` | secret | Body `{ "index": 2 }` or `{ "message": "exact text" }`. Removes one message from the pool. |
+| POST   | `/reply`    | none   | Body `{ "text": "...", "repliedTo": "..." }`. Public — same posture as `/message` itself, no secret. Max 300 characters. |
+| GET    | `/replies`  | secret | Returns all replies as a JSON array, each `{ text, repliedTo, timestamp }`. |
+| DELETE | `/replies`  | secret | With no body, clears all replies. With `{ "index": 1 }`, removes just that one. |
 
 Authenticated routes expect an `Authorization: Bearer <ADMIN_SECRET>` header.
 
