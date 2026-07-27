@@ -14,10 +14,10 @@
   <div class="letter">
     <span class="mark">for Tina</span>
     <p id="message"></p>
+    <a id="song-link" class="action-link song-link" href="#" target="_blank" rel="noopener noreferrer"></a>
     <div class="rule"></div>
 
     <div class="actions">
-      <a id="song-link" class="action-link song-link" href="#" target="_blank" rel="noopener noreferrer"></a>
       <button type="button" id="reply-toggle" class="action-link">reply</button>
     </div>
 
@@ -44,7 +44,7 @@
       const songLink = document.getElementById("song-link");
       songLink.href = song.url;
       songLink.textContent = "🎵 " + (song.title || "song");
-      songLink.style.display = "inline";
+      songLink.style.display = "inline-block";
     }
 
     const replyForm = document.getElementById("reply-form");

@@ -49,6 +49,11 @@ body {
   opacity: 0.7;
 }
 
+.song-link {
+  display: none;
+  margin-top: 0.75rem;
+}
+
 .actions {
   margin-top: 1.5rem;
   display: flex;
@@ -74,10 +79,6 @@ body {
 
 .action-link:hover {
   opacity: 1;
-}
-
-.song-link {
-  display: none;
 }
 
 .reply {
