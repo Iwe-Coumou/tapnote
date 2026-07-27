@@ -16,8 +16,12 @@
     <p id="message"></p>
     <div class="rule"></div>
 
+    <div class="actions">
+      <a id="song-link" class="action-link song-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+      <button type="button" id="reply-toggle" class="action-link">reply</button>
+    </div>
+
     <form id="reply-form" class="reply">
-      <button type="button" id="reply-toggle" class="reply-toggle">reply</button>
       <div id="reply-controls">
         <input id="reply-input" class="reply-input" type="text" placeholder="write something back..." maxlength="300" />
         <div class="emoji-row">
@@ -34,6 +38,14 @@
   <script>
     const currentMessage = __MESSAGE_JSON__;
     document.getElementById("message").textContent = currentMessage;
+
+    const song = __SONG_JSON__;
+    if (song) {
+      const songLink = document.getElementById("song-link");
+      songLink.href = song.url;
+      songLink.textContent = "🎵 " + (song.title || "song");
+      songLink.style.display = "inline";
+    }
 
     const replyForm = document.getElementById("reply-form");
     const replyToggle = document.getElementById("reply-toggle");

@@ -32,8 +32,14 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 | POST   | `/reply`    | none   | Body `{ "text": "...", "repliedTo": "..." }`. Public — same posture as `/message` itself, no secret. Max 300 characters. |
 | GET    | `/replies`  | secret | Returns all replies as a JSON array, each `{ text, repliedTo, timestamp }`. |
 | DELETE | `/replies`  | secret | With no body, clears all replies. With `{ "index": 1 }`, removes just that one. |
+| POST   | `/songs`    | secret | Body `{ "url": "https://open.spotify.com/track/...", "title": "..." }` (`title` optional). Appends a song to the pool. |
+| GET    | `/songs`    | secret | Returns the full song pool as a JSON array of `{ url, title }`. |
+| PUT    | `/songs`    | secret | Body `{ "songs": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |
+| DELETE | `/songs`    | secret | Body `{ "index": 0 }` or `{ "url": "..." }`. Removes one song from the pool. |
 
 Authenticated routes expect an `Authorization: Bearer <ADMIN_SECRET>` header.
+
+Songs are a plain curated list, not a live Spotify playlist lookup — Spotify's Web API now requires the developer account to hold an active Premium subscription for even basic catalog reads, so `/message` never calls out to Spotify at all. Add track links by hand (Spotify app → Share → Copy Link) via `/songs` or the CLI.
 
 ## Project structure
 

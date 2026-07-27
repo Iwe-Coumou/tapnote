@@ -212,6 +212,109 @@ async function handleDeleteReplies(request, env) {
   return new Response("Cleared", { status: 200 });
 }
 
+async function readSongs(env) {
+  const raw = await env.TAPNOTE_KV.get("songs");
+  return raw ? JSON.parse(raw) : [];
+}
+
+// Deliberately not calling the Spotify API — as of Feb 2026 that requires
+// the developer account to hold an active Premium subscription, and is
+// being restricted for exactly this kind of catalog read anyway. Instead
+// songs are just a curated list of track links you add by hand (grabbed
+// from Spotify's own Share > Copy Link), same pattern as the message pool.
+function isValidSpotifyTrackUrl(url) {
+  return typeof url === "string" && /^https:\/\/open\.spotify\.com\/track\/[A-Za-z0-9]+/.test(url);
+}
+
+async function handleAddSong(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const trackUrl = typeof body.url === "string" ? body.url.trim() : "";
+  if (!isValidSpotifyTrackUrl(trackUrl)) {
+    return new Response("`url` must be a Spotify track link (https://open.spotify.com/track/...)", { status: 400 });
+  }
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+
+  const songs = await readSongs(env);
+  songs.push({ url: trackUrl, title: title || null });
+  await env.TAPNOTE_KV.put("songs", JSON.stringify(songs));
+
+  return new Response("Added", { status: 200 });
+}
+
+async function handleListSongs(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const songs = await readSongs(env);
+  return new Response(JSON.stringify(songs), {
+    headers: { "content-type": "application/json" },
+  });
+}
+
+async function handleReplaceSongs(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const isValid = Array.isArray(body.songs) && body.songs.every(
+    (s) => s && isValidSpotifyTrackUrl(s.url) && (s.title == null || typeof s.title === "string")
+  );
+  if (!isValid) {
+    return new Response("`songs` must be an array of { url, title? }", { status: 400 });
+  }
+
+  const normalized = body.songs.map((s) => ({ url: s.url, title: s.title || null }));
+  await env.TAPNOTE_KV.put("songs", JSON.stringify(normalized));
+  return new Response("Replaced", { status: 200 });
+}
+
+async function handleDeleteSong(request, env) {
+  if (!isAuthorized(request, env)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  const songs = await readSongs(env);
+  const index = typeof body.index === "number" ? body.index : songs.findIndex((s) => s.url === body.url);
+
+  if (index < 0 || index >= songs.length) {
+    return new Response("Song not found", { status: 404 });
+  }
+
+  songs.splice(index, 1);
+  await env.TAPNOTE_KV.put("songs", JSON.stringify(songs));
+  return new Response("Deleted", { status: 200 });
+}
+
+async function pickSong(env) {
+  const songs = await readSongs(env);
+  if (songs.length === 0) return null;
+  return songs[Math.floor(Math.random() * songs.length)];
+}
+
 async function handleGetQueue(request, env) {
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
@@ -299,6 +402,22 @@ export default {
             return handleDeleteReplies(request, env);
         }
 
+        if (request.method === "POST" && url.pathname === "/songs") {
+            return handleAddSong(request, env);
+        }
+
+        if (request.method === "GET" && url.pathname === "/songs") {
+            return handleListSongs(request, env);
+        }
+
+        if (request.method === "PUT" && url.pathname === "/songs") {
+            return handleReplaceSongs(request, env);
+        }
+
+        if (request.method === "DELETE" && url.pathname === "/songs") {
+            return handleDeleteSong(request, env);
+        }
+
         return new Response("Not found", { status: 404 });
     },
 };
@@ -320,10 +439,12 @@ async function pickMessage(env) {
     return messages[index];
 }
 
-function renderMessagePage(message) {
+function renderMessagePage(message, song) {
     const safeMessageJson = JSON.stringify(message).replace(/</g, "\\u003c");
+    const safeSongJson = JSON.stringify(song).replace(/</g, "\\u003c");
     const html = messageTemplate
         .replace("__MESSAGE_JSON__", () => safeMessageJson)
+        .replace("__SONG_JSON__", () => safeSongJson)
         .replace("/*__STYLES__*/", () => pageStyles);
 
     return new Response(html, {
@@ -366,5 +487,6 @@ async function handleMessage(request, env) {
     }
 
     const message = await pickMessage(env);
-    return renderMessagePage(message);
+    const song = await pickSong(env);
+    return renderMessagePage(message, song);
 }
