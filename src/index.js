@@ -175,42 +175,29 @@ async function handleReply(request, env) {
   return new Response("Thanks!", { status: 200 });
 }
 
+// GET /replies is view-once: reading them clears them. There's no separate
+// delete endpoint — viewing *is* the consuming action, same as GET /message
+// already destructively pops the queue. Use GET /replies/count for a safe,
+// non-destructive peek at how many are waiting.
 async function handleListReplies(request, env) {
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
   }
   const replies = await readReplies(env);
+  await env.TAPNOTE_KV.delete("replies");
   return new Response(JSON.stringify(replies), {
     headers: { "content-type": "application/json" },
   });
 }
 
-// DELETE /replies with no body clears all replies. With { "index": n },
-// removes just that one.
-async function handleDeleteReplies(request, env) {
+async function handleCountReplies(request, env) {
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
   }
-
-  let body = {};
-  try {
-    body = await request.json();
-  } catch {
-    // No body (or invalid JSON) — treated as "clear everything" below.
-  }
-
-  if (typeof body.index === "number") {
-    const replies = await readReplies(env);
-    if (body.index < 0 || body.index >= replies.length) {
-      return new Response("Reply not found", { status: 404 });
-    }
-    replies.splice(body.index, 1);
-    await env.TAPNOTE_KV.put("replies", JSON.stringify(replies));
-    return new Response("Removed", { status: 200 });
-  }
-
-  await env.TAPNOTE_KV.delete("replies");
-  return new Response("Cleared", { status: 200 });
+  const replies = await readReplies(env);
+  return new Response(JSON.stringify({ count: replies.length }), {
+    headers: { "content-type": "application/json" },
+  });
 }
 
 async function readSongs(env) {
@@ -399,8 +386,8 @@ export default {
             return handleListReplies(request, env);
         }
 
-        if (request.method === "DELETE" && url.pathname === "/replies") {
-            return handleDeleteReplies(request, env);
+        if (request.method === "GET" && url.pathname === "/replies/count") {
+            return handleCountReplies(request, env);
         }
 
         if (request.method === "POST" && url.pathname === "/songs") {
@@ -419,7 +406,7 @@ export default {
             return handleDeleteSong(request, env);
         }
 
-        return renderErrorPage("There's nothing here — check the link?", 404);
+        return renderErrorPage(request, "There's nothing here — check the link?", 404);
     },
 };
 
@@ -458,7 +445,18 @@ function renderMessagePage(message, song) {
 // only error responses she could ever actually see, so they get the same
 // letter styling instead of plain browser error text. Admin-route errors
 // (401/404 on the CLI-facing endpoints) stay plain text on purpose.
-function renderErrorPage(message, status) {
+//
+// Only actually renders HTML for requests that look like a browser (Accept
+// includes text/html, e.g. Safari) — anything else, like tapnoted's HTTP
+// client (which sends no Accept header at all), gets plain text instead.
+// Without this, a 404 from a stale/undeployed CLI would dump a full HTML
+// document into the terminal.
+function renderErrorPage(request, message, status) {
+    const accept = request.headers.get("Accept") || "";
+    if (!accept.includes("text/html")) {
+        return new Response(message, { status });
+    }
+
     const safeMessageJson = JSON.stringify(message).replace(/</g, "\\u003c");
     const html = errorTemplate
         .replace("__MESSAGE_JSON__", () => safeMessageJson)
@@ -501,7 +499,7 @@ function verifyTagAuth(request, env) {
 async function handleMessage(request, env) {
     const authResult = verifyTagAuth(request, env);
     if (!authResult.valid) {
-        return renderErrorPage("That link doesn't look right — try tapping the tag again?", 403);
+        return renderErrorPage(request, "That link doesn't look right — try tapping the tag again?", 403);
     }
 
     try {
@@ -509,6 +507,6 @@ async function handleMessage(request, env) {
         const song = await pickSong(env);
         return renderMessagePage(message, song);
     } catch {
-        return renderErrorPage("Something went wrong on this end — try tapping again in a moment.", 500);
+        return renderErrorPage(request, "Something went wrong on this end — try tapping again in a moment.", 500);
     }
 }

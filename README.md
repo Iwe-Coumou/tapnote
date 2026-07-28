@@ -30,8 +30,8 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 | PUT    | `/messages` | secret | Body `{ "messages": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |
 | DELETE | `/messages` | secret | Body `{ "index": 2 }` or `{ "message": "exact text" }`. Removes one message from the pool. |
 | POST   | `/reply`    | none   | Body `{ "text": "...", "repliedTo": "..." }`. Public — same posture as `/message` itself, no secret. Max 300 characters. |
-| GET    | `/replies`  | secret | Returns all replies as a JSON array, each `{ text, repliedTo, timestamp }`. |
-| DELETE | `/replies`  | secret | With no body, clears all replies. With `{ "index": 1 }`, removes just that one. |
+| GET    | `/replies`  | secret | View-once: returns all replies as a JSON array (each `{ text, repliedTo, timestamp }`) and clears them as part of the same request. There's no separate delete endpoint — viewing *is* the consuming action, same as `/message` destructively pops the queue. |
+| GET    | `/replies/count` | secret | Non-destructive: returns `{ "count": N }` without touching or clearing anything. |
 | POST   | `/songs`    | secret | Body `{ "url": "https://open.spotify.com/track/...", "title": "..." }` (`title` optional). Appends a song to the pool. |
 | GET    | `/songs`    | secret | Returns the full song pool as a JSON array of `{ url, title }`. |
 | PUT    | `/songs`    | secret | Body `{ "songs": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |
