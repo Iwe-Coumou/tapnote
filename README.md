@@ -21,7 +21,7 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 
 | Method | Path        | Auth   | Purpose                                                                 |
 | ------ | ----------- | ------ | ------------------------------------------------------------------------ |
-| GET    | `/message`  | none   | Returns the styled HTML page with one message (queued message if one is waiting, otherwise random from the pool). |
+| GET    | `/message`  | tag    | Returns the styled HTML page with one message (queued message if one is waiting, otherwise random from the pool). Requires a valid, unreplayed NTAG 424 DNA tap signature — see below. |
 | POST   | `/queue`    | secret | Body `{ "message": "..." }`. Appends to the queue — taps serve queued messages in order (FIFO) before falling back to random once the queue is empty. |
 | GET    | `/queue`    | secret | Returns `{ "queue": [...] }` — the full ordered list of upcoming queued messages. |
 | DELETE | `/queue`    | secret | With no body, clears the entire queue. With `{ "index": 1 }`, removes just that one queued item. |
@@ -37,7 +37,8 @@ mobile Safari with no app and no Web NFC, so it works from any phone.
 | PUT    | `/songs`    | secret | Body `{ "songs": [...] }`. Replaces the whole pool at once — pass an empty array to reset it. |
 | DELETE | `/songs`    | secret | Body `{ "index": 0 }` or `{ "url": "..." }`. Removes one song from the pool. |
 
-Authenticated routes expect an `Authorization: Bearer <ADMIN_SECRET>` header.
+Routes marked `secret` expect an `Authorization: Bearer <ADMIN_SECRET>` header.
+The `tag` route is authenticated by the NFC tag itself, not a header.
 
 The two error states reachable through `/message` itself (an invalid/replayed
 tag link, or something unexpected failing) render with the same letter
@@ -157,14 +158,116 @@ No redeploy needed to change messages — just hit the live endpoints with
 your real `ADMIN_SECRET`, same as the local testing commands above but
 pointed at the production URL.
 
-## Planned: NTAG 424 DNA verification
+## NTAG 424 DNA verification
 
-The tag currently in use is a plain NFC tag — the URL it opens has no
-built-in authenticity check. `verifyTagAuth()` in `src/index.js` is a
-deliberate no-op placeholder for now, with comments describing what it will
-do once the tag is upgraded to an NTAG 424 DNA chip: verify a per-tap
-signature and reject any previously-seen counter value, to prevent a
-tapped/shared link from being reused.
+`/message` is protected by the tag itself, so the page opens on a real tap
+and not from a pasted, bookmarked, or screenshotted URL.
+
+An NTAG 424 DNA in SUN (Secure Unique NFC) mode rewrites its own URL on every
+tap, appending two params the chip generates in hardware:
+
+```
+/message?picc_data=EF963FF7828658A599F3041510671E88&cmac=94EED9EE65337086
+```
+
+`picc_data` is the tag's UID plus a per-tap read counter, AES-encrypted with a
+key that only the chip and this Worker hold. `cmac` is a MAC over that data.
+`verifyTagAuth()` in `src/index.js` decrypts `picc_data`, re-derives the
+per-tap session key, recomputes the CMAC, and compares it. Nothing else can
+produce a valid pair — the key never leaves the chip or the Worker.
+
+The read counter is what stops a link from being reused. It only ever
+increases, and the last-seen value per UID is stored in KV under
+`tag-counter:<uid>`. A shared or screenshotted URL always carries a counter
+that's already been served, so it gets the 403 letter page instead.
+
+### Configuration
+
+Verification turns on as soon as a key is set. With no keys configured every
+request passes, which is the plain-NFC-tag behaviour this started with — so
+the live site keeps working until the hardware is actually swapped.
+
+Keys are raw AES-128 as 32 hex characters, matching what you programmed into
+the chip:
+
+```
+npx wrangler secret put TAG_AES_KEY
+```
+
+| Secret / var | Required | Purpose |
+| ------------ | -------- | ------- |
+| `TAG_AES_KEY` | to enable | Used for both roles below when they aren't set individually. |
+| `TAG_META_KEY` | no | Decrypts `picc_data` — the chip's `SDMMetaReadKey`. Overrides `TAG_AES_KEY`. |
+| `TAG_MAC_KEY` | no | Derives the CMAC session key — the chip's `SDMFileReadKey`. Overrides `TAG_AES_KEY`. |
+| `TAG_UIDS` | no | Comma-separated hex UID allowlist. Unset means any UID holding the key is accepted. |
+| `TAG_REPLAY_GRACE_SECONDS` | no | Window in which the *same* counter may be re-served, so a page refresh doesn't hard-fail. Default `120`; `0` disables it. |
+
+The chip must be configured to mirror both UID and read counter (a
+`PICCDataTag` of `0xC7` — 7-byte UID) using **encrypted** PICC data, not
+plaintext UID mirroring. Other layouts fail with `unexpected PICC layout`.
+
+Mirrored custom data is optional and handled either way. The chip signs the
+literal URL text between `SDMMACInputOffset` and `SDMMACOffset`, so what the
+CMAC covers depends on how the tag was programmed — `sdmMacInput()` reads that
+range off the raw URL rather than assuming it:
+
+- **No custom data** — the offsets coincide, the signed message is empty.
+- **Custom data mirrored** (an `enc=` param) — the signed message runs from
+  the start of the `enc` value to the start of the `cmac` value, which means
+  it *includes the `&cmac=` separator between them*. Omitting those six
+  characters is the non-obvious way to get a MAC that never matches.
+
+Note that the grace window is a deliberate trade: for those two minutes a
+copied URL does work. Set it to `0` if you'd rather a refresh break than
+allow that. Also worth knowing: because `/message` destructively pops the
+queue, a refresh inside the grace window consumes the next queued message —
+that's pre-existing behaviour, not something the tag check introduced.
+
+Local testing without hardware: put `TAG_AES_KEY=00000000000000000000000000000000`
+in `.dev.vars` and use the vector URL above — it's the all-zero-key test
+vector, and it verifies once before the replay check takes over.
+
+### Programming a tag (NXP TagWriter, Android)
+
+*Write tags → New dataset → Link → Configure Mirroring.* Use **NXP TagWriter**,
+not the NFC Developer App — the latter watermarks every URL it writes with
+`_____TRIAL_VERSION______NOT_FOR_PRODUCTION_____` and, worse, re-keys the tag
+to a value it doesn't show you. A tag whose key you don't know can never be
+reconfigured.
+
+| Setting | Value |
+| ------- | ----- |
+| Select Card Type | NTAG 424 DNA |
+| URI Type | `https://` (not `http://` — iOS wants HTTPS for background tag reading) |
+| Enter URL | `tapnote.icoumou.workers.dev/message?picc_data=` + 32 zeros + `&cmac=` + 16 zeros |
+| SDM Meta Read Access Right | `01` — a key number, **not** `0E` (plaintext) or `0F` (disabled) |
+| Derivation Key for CMAC | `01` |
+| Enable Counter Mirroring | ✅ — required; without it there's no replay protection |
+| Encrypted File Data Mirroring | ☐ — keeps the signed message empty |
+| Enable Read Counter Limit | ☐ |
+| SDM Counter Retrieval Key | `0E` (irrelevant — the counter we use comes from inside `picc_data`) |
+
+Offsets are set by placing the cursor in the URL field and pressing the
+matching *Set Offset* button. TagWriter counts from the start of the NDEF
+file, so they run 7 ahead of the position within the URL text (2 bytes of
+length prefix + 5 bytes of record header). For the URL above:
+
+| Offset | Cursor position | Value |
+| ------ | --------------- | ----- |
+| PICC Data Offset | before the first of the 32 zeros | `53` |
+| SDM MAC Offset | before the first of the 16 zeros | `91` |
+| SDM MAC Input Offset | same position | `91` |
+
+Equal MAC offsets mean the signed message is empty. **Re-set all three after
+any edit to the URL** — they're absolute positions, so changing a single
+character invalidates them, and the failure mode is a tag that reads fine and
+never verifies.
+
+Leave the keys at factory zeros. Changing them needs a reader (`pylibsdm` with
+an ACR122U, or TagXplorer) — TagWriter can't do it, and NXP points at
+RFIDDiscover with a PEGODA for the job. It also buys little here: the counter
+check is what stops a shared link, and it works regardless of whether the key
+is secret.
 
 ## A note on how this was built
 
