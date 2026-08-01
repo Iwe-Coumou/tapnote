@@ -7,7 +7,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1.5rem;
+  padding: 2rem 1.5rem 3.5rem;
   background: radial-gradient(ellipse at top, #fffaf2 0%, #f4ead9 55%, #ecdec7 100%);
   font-family: "Cormorant Garamond", Georgia, serif;
   color: #3a2e26;
@@ -169,6 +169,35 @@ body {
   font-family: "Parisienne", cursive;
   font-size: 1.3rem;
   opacity: 1;
+}
+
+/* Fixed rather than in flow so it can't disturb the letter's centring, with
+   matching bottom padding on the body so it never overlaps on short screens. */
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.9rem 1rem calc(0.9rem + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a15c4e;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+
+.footer:hover,
+.footer:focus-within {
+  opacity: 0.8;
+}
+
+.footer a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(161, 92, 78, 0.4);
+  padding-bottom: 1px;
 }
 
 @keyframes rise {

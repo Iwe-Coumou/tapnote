@@ -1,6 +1,9 @@
 import messageTemplate from "./message.html"
 import errorTemplate from "./error.html"
 import pageStyles from "./style.css"
+// Single source of truth for the version in the page footer — bumping
+// package.json is enough, there's no second place to remember.
+import { version as appVersion } from "../package.json"
 
 function safeEqual(a, b) {
     if (a.length !== b.length) return false;
@@ -433,6 +436,7 @@ function renderMessagePage(message, song) {
     const html = messageTemplate
         .replace("__MESSAGE_JSON__", () => safeMessageJson)
         .replace("__SONG_JSON__", () => safeSongJson)
+        .replace("__VERSION__", () => appVersion)
         .replace("/*__STYLES__*/", () => pageStyles);
 
     return new Response(html, {
@@ -460,6 +464,7 @@ function renderErrorPage(request, message, status) {
     const safeMessageJson = JSON.stringify(message).replace(/</g, "\\u003c");
     const html = errorTemplate
         .replace("__MESSAGE_JSON__", () => safeMessageJson)
+        .replace("__VERSION__", () => appVersion)
         .replace("/*__STYLES__*/", () => pageStyles);
 
     return new Response(html, {
