@@ -1,5 +1,11 @@
 # tapnote
 
+[![Release](https://img.shields.io/github/v/release/Iwe-Coumou/tapnote)](https://github.com/Iwe-Coumou/tapnote/release)
+![License](https://img.shields.io/github/license/Iwe-Coumou/tapnote)
+![Last commit](https://img.shields.io/github/last-commit/Iwe-Coumou/tapnote)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)
+![NTAG 424 DNA](https://img.shields.io/badge/NFC-NTAG%20424%20DNA-6E4B9E)
+
 An NFC tap-to-reveal message gift. An NFC tag stores a link; tapping it with
 a phone opens a page showing a personal message — either a random pick from
 a private list, or a specific message queued up in advance. Built to work in
