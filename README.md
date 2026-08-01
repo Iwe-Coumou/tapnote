@@ -217,11 +217,15 @@ range off the raw URL rather than assuming it:
   it *includes the `&cmac=` separator between them*. Omitting those six
   characters is the non-obvious way to get a MAC that never matches.
 
-Note that the grace window is a deliberate trade: for those two minutes a
-copied URL does work. Set it to `0` if you'd rather a refresh break than
-allow that. Also worth knowing: because `/message` destructively pops the
-queue, a refresh inside the grace window consumes the next queued message —
-that's pre-existing behaviour, not something the tag check introduced.
+A tap is worth exactly one message. Within the grace window the *same* letter
+and song are redisplayed rather than drawn again — the pick is recorded
+alongside the counter under `tag-counter:<uid>` and replayed on reload. Without
+that, a pull-to-refresh would pop another queued message each time, so a single
+tap could drain the whole queue.
+
+The grace window is still a deliberate trade: for those two minutes a copied
+URL does work, though it only ever shows the letter that tap already revealed.
+Set it to `0` if you'd rather a refresh break outright.
 
 Local testing without hardware: put `TAG_AES_KEY=00000000000000000000000000000000`
 in `.dev.vars` and use the vector URL above — it's the all-zero-key test

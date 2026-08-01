@@ -625,40 +625,49 @@ function sdmMacInput(rawUrl) {
   return new TextEncoder().encode(rawUrl.slice(encValue, cmacValue));
 }
 
-// Rejects a counter we've already served. KV is eventually consistent, so two
-// truly simultaneous requests could both read a stale value — for this use
-// (one tag, one person tapping it) that's fine. A Durable Object per tag is
-// the upgrade if strict same-request consistency ever matters.
-async function checkAndStoreCounter(env, uidHex, counter) {
-  const key = `tag-counter:${uidHex}`;
-  const raw = await env.TAPNOTE_KV.get(key);
-  const now = Date.now();
+// Decides whether this counter may be served, and whether it's a new tap or a
+// reload of one already answered. KV is eventually consistent, so two truly
+// simultaneous requests could both read a stale value — for this use (one tag,
+// one person tapping it) that's fine. A Durable Object per tag is the upgrade
+// if strict same-request consistency ever matters.
+//
+// Returns { allowed, fresh, served }. `served` carries what the original tap
+// was shown, so a refresh can redisplay that same letter instead of drawing a
+// new one — a tap is meant to be worth exactly one message.
+async function claimCounter(env, uidHex, counter) {
+  const raw = await env.TAPNOTE_KV.get(`tag-counter:${uidHex}`);
+  if (!raw) return { allowed: true, fresh: true };
 
-  if (raw) {
-    let seen;
-    try {
-      seen = JSON.parse(raw);
-    } catch {
-      seen = null;
-    }
-
-    if (seen && typeof seen.ctr === "number") {
-      if (counter < seen.ctr) return false;
-
-      // Same counter as last time: that's a reload of the page this tap
-      // already opened, not a new tap. Allowed for a short window so a
-      // refresh (or Safari re-requesting) doesn't hard-fail, but the window
-      // is measured from the original tap and never slides forward.
-      if (counter === seen.ctr) {
-        const graceMs = replayGraceSeconds(env) * 1000;
-        const startedAt = typeof seen.ts === "number" ? seen.ts : 0;
-        return graceMs > 0 && now - startedAt <= graceMs;
-      }
-    }
+  let seen;
+  try {
+    seen = JSON.parse(raw);
+  } catch {
+    seen = null;
   }
+  if (!seen || typeof seen.ctr !== "number") return { allowed: true, fresh: true };
 
-  await env.TAPNOTE_KV.put(key, JSON.stringify({ ctr: counter, ts: now }));
-  return true;
+  if (counter < seen.ctr) return { allowed: false };
+  if (counter > seen.ctr) return { allowed: true, fresh: true };
+
+  // Same counter as last time: a reload of the page this tap already opened,
+  // not a new tap. Allowed for a short window so a refresh (or Safari
+  // re-requesting) doesn't hard-fail, but the window is measured from the
+  // original tap and never slides forward.
+  const graceMs = replayGraceSeconds(env) * 1000;
+  const startedAt = typeof seen.ts === "number" ? seen.ts : 0;
+  if (graceMs > 0 && Date.now() - startedAt <= graceMs) {
+    return { allowed: true, fresh: false, served: seen.served ?? null };
+  }
+  return { allowed: false };
+}
+
+// Records what this tap was shown, so reloads inside the grace window replay it
+// rather than consuming another queued message.
+async function recordServed(env, uidHex, counter, served) {
+  await env.TAPNOTE_KV.put(
+    `tag-counter:${uidHex}`,
+    JSON.stringify({ ctr: counter, ts: Date.now(), served })
+  );
 }
 
 function replayGraceSeconds(env) {
@@ -724,11 +733,12 @@ async function verifyTagAuth(request, env) {
       return { valid: false, reason: "unknown tag uid" };
     }
 
-    if (!(await checkAndStoreCounter(env, uidHex, counter))) {
+    const claim = await claimCounter(env, uidHex, counter);
+    if (!claim.allowed) {
       return { valid: false, reason: "counter replay" };
     }
 
-    return { valid: true, uid: uidHex, counter };
+    return { valid: true, uid: uidHex, counter, fresh: claim.fresh, served: claim.served };
   } catch {
     return { valid: false, reason: "verification error" };
   }
@@ -751,8 +761,18 @@ async function handleMessage(request, env) {
     );
 
     try {
+        // A reload inside the grace window redisplays the letter that tap
+        // already produced. Without this a refresh would pop another queued
+        // message, so one tap could burn through the whole queue.
+        if (authResult.served) {
+            return renderMessagePage(authResult.served.message, authResult.served.song);
+        }
+
         const message = await pickMessage(env);
         const song = await pickSong(env);
+        if (authResult.uid) {
+            await recordServed(env, authResult.uid, authResult.counter, { message, song });
+        }
         return renderMessagePage(message, song);
     } catch {
         return renderErrorPage(request, "Something went wrong on this end — try tapping again in a moment.", 500);
